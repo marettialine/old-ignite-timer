@@ -33,11 +33,12 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   *::-webkit-scrollbar-track {
-    background: ${(props) => props.theme['gray-500']};
+    background: ${(props) => props.theme['gray-600']};
     padding: 2px;
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: ${(props) => props.theme['gray-600']};
+    border-radius: 8px;
+    background-color: ${(props) => props.theme['gray-500']};
   }
 `
