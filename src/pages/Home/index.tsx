@@ -35,7 +35,16 @@ const newCycleFormValidationSchema = zod.object({
 // zod.infer: inferir os dados do data com base no newCycleFormValidationSchema
 type newCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
 
+interface Cycle {
+  id: string
+  task: string
+  minutesAmount: number
+}
+
 export function Home() {
+  // tem que ser uma lista de ciclos pra armazenar o histórico
+  const [cycles, setCycle] = useState<Cycle[]>([])
+
   //  useForm: objeto que possui várias funções/variáveis para criar o formulário
   /**
    * register: adiciona input no formulário, tira a necessidade de colocar name no input
@@ -51,18 +60,29 @@ export function Home() {
   // defaultValues: valor inicial de cada campo
   // Passar o genéric com o newCycleFormData informe as defaultValues as variáveis possíveis (task, minutesAmout)
   // ctrl + espaço indica as variáveis da interface newCycleFormData
-  const { register, handleSubmit, watch, formState } =
+  // reset: automaticamente volta os valores para os resultado que coloquei no defaultValues
+  const { register, handleSubmit, watch, formState, reset } =
     useForm<newCycleFormData>({
       // Adicionar dentro de zodResolver toda a lógica de validação
       resolver: zodResolver(newCycleFormValidationSchema),
       defaultValues: {
         task: '',
-        minutesAmount: 0,
+        minutesAmount: 5,
       },
     })
 
   function handleCreateNewCycle(data: newCycleFormData) {
-    console.log(data)
+    // id com base no milisegundo que a pessoa clicou no botão
+    const newCycle: Cycle = {
+      id: String(new Date().getTime()),
+      task: data.task,
+      minutesAmount: data.minutesAmount,
+    }
+
+    // sempre que o valor do estado precisa do valor anterior, é necessário alterar por função
+    setCycle((state) => [...state, newCycle])
+
+    reset()
   }
 
   // Retorna os erros de validação do resolver
