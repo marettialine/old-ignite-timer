@@ -1,17 +1,36 @@
-import { ChangeEvent, useEffect, useState } from 'react'
+import { ChangeEvent, createContext, useEffect, useState } from 'react'
 import { HandPalm, Play } from 'phosphor-react'
-import { useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as zod from 'zod' // Não possui export default, por isso * as zod, caso contrário teria que colocar entre {} cada coisa que queríamos importar
-import { differenceInSeconds } from 'date-fns'
+
+import { NewCycleForm } from './components/NewCycleForm'
+import { Countdown } from './components/Countdown'
 
 import {
   HomeContainer,
   StartCountdownButton,
   StopCountdownButton,
 } from './styles'
-import { NewCycleForm } from './components/NewCycleForm'
-import { Countdown } from './components/Countdown'
+
+interface Cycle {
+  id: string
+  task: string
+  minutesAmount: number
+  startDate: Date // data que ele ficou ativo
+  interruptedDate?: Date
+  finishedDate?: Date
+}
+
+interface CyclesContextType {
+  activeCycle: Cycle | undefined
+  activeCycleId: string | null
+  amountSecondsPassed: number
+  markCurrentCycleAsFinished: () => void
+  setSecondsPassed: (seconds: number) => void
+}
+
+export const CyclesContext = createContext({} as CyclesContextType)
 
 // Schema: definir um formato e validar dados de um formulário baseado nesse formato
 // zod.object: foi usado object pois o retorno do nosso fomrulário é um objeto (data)
@@ -33,15 +52,6 @@ const newCycleFormValidationSchema = zod.object({
 // type: melhor para criar uma tipagem a partir de outra referência/variável
 // zod.infer: inferir os dados do data com base no newCycleFormValidationSchema
 type newCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
-
-interface Cycle {
-  id: string
-  task: string
-  minutesAmount: number
-  startDate: Date // data que ele ficou ativo
-  interruptedDate?: Date
-  finishedDate?: Date
-}
 
 export function Home() {
   // tem que ser uma lista de ciclos pra armazenar o histórico
@@ -69,61 +79,34 @@ export function Home() {
   // Passar o genéric com o newCycleFormData informe as defaultValues as variáveis possíveis (task, minutesAmout)
   // ctrl + espaço indica as variáveis da interface newCycleFormData
   // reset: automaticamente volta os valores para os resultado que coloquei no defaultValues
-  const { register, handleSubmit, watch, formState, reset } =
-    useForm<newCycleFormData>({
-      // Adicionar dentro de zodResolver toda a lógica de validação
-      resolver: zodResolver(newCycleFormValidationSchema),
-      defaultValues: {
-        task: '',
-        minutesAmount: 5,
-      },
-    })
+  const newCycleForm = useForm<newCycleFormData>({
+    // Adicionar dentro de zodResolver toda a lógica de validação
+    resolver: zodResolver(newCycleFormValidationSchema),
+    defaultValues: {
+      task: '',
+      minutesAmount: 5,
+    },
+  })
+
+  const { handleSubmit, watch, reset } = newCycleForm
 
   const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
 
-  const totalSeconds = activeCycle ? activeCycle.minutesAmount * 60 : 0
+  function setSecondsPassed(seconds: number) {
+    setAmountSecondsPassed(seconds)
+  }
 
-  // sempre que usamos uma variável externa, devemos incluir ela como dependencia do useEffect dentro dos colchetes
-  useEffect(() => {
-    let interval: number
-
-    // só quero fazer a redução do countdown se tiver um ciclo ativo
-    if (activeCycle) {
-      interval = setInterval(() => {
-        // calculando a diferença de segundos que se passaram desde a data atual pra data que começou o ciclo dentro do intervalo de 1 segundo
-        const secondsDifference = differenceInSeconds(
-          new Date(),
-          activeCycle.startDate,
-        )
-
-        // compara pra ver se já chegou no zero, caso sim, terminou o contador, caso contrario, continua mudando os minutos/segundos
-        if (secondsDifference >= totalSeconds) {
-          // percorre o objeto e acha o ciclo ativo para mudar a data que foi interrompido
-          setCycles((state) =>
-            state.map((cycle) => {
-              if (cycle.id === activeCycleId) {
-                return { ...cycle, finishedDate: new Date() }
-              } else {
-                return cycle
-              }
-            }),
-          )
-
-          setAmountSecondsPassed(totalSeconds)
-
-          clearInterval(interval)
+  function markCurrentCycleAsFinished() {
+    setCycles((state) =>
+      state.map((cycle) => {
+        if (cycle.id === activeCycleId) {
+          return { ...cycle, finishedDate: new Date() }
         } else {
-          setAmountSecondsPassed(secondsDifference)
+          return cycle
         }
-      }, 1000)
-    }
-
-    // retorno do useEffect sempre será uma função
-    // nesse caso o useEffect será chamado toda vez que a activeCycle mudar, portanto quando chamar o useEffect de novo, vou fazer o clearInterval
-    return () => {
-      clearInterval(interval)
-    }
-  }, [activeCycle, activeCycleId, totalSeconds])
+      }),
+    )
+  }
 
   function handleCreateNewCycle(data: newCycleFormData) {
     const id = String(new Date().getTime())
@@ -164,37 +147,36 @@ export function Home() {
   // Retorna os erros de validação do resolver
   // console.log(formState.errors)
 
-  const currentSeconds = activeCycle ? totalSeconds - amountSecondsPassed : 0
-
-  const minutesAmount = Math.floor(currentSeconds / 60)
-  const secondsAmount = currentSeconds % 60
-
-  // padStart: nesse caso a string sempre tem que ter tamanho , caso contrário o padStart irá preencher com '0' até chegar no tamanho desejado
-  const minutes = String(minutesAmount).padStart(2, '0')
-  const seconds = String(secondsAmount).padStart(2, '0')
-
-  // coloca o timer no title da página também
-  useEffect(() => {
-    if (activeCycle) {
-      document.title = `Ignite Timer - ${minutes}:${seconds}`
-    }
-  }, [minutes, seconds])
-
   // console.log(activeCycle)
 
   // Observa o valor do input em tempo real, transforma form em controlled
   // Controlled recria o componente inteiro ou somente o input nesse caso
   const task = watch('task')
-  const isSubmitDisabled = !task
 
-  console.log(cycles)
+  const isSubmitDisabled = !task
 
   return (
     <HomeContainer>
       <form onSubmit={handleSubmit(handleCreateNewCycle)} action="">
-        <NewCycleForm />
+        <CyclesContext.Provider
+          value={{
+            activeCycle,
+            activeCycleId,
+            amountSecondsPassed,
+            markCurrentCycleAsFinished,
+            setSecondsPassed,
+          }}
+        >
+          <FormProvider
+            {
+              ...newCycleForm // pego cada propriedade do newCycleForm e passo como propriedade
+            }
+          >
+            <NewCycleForm />
+          </FormProvider>
 
-        <Countdown />
+          <Countdown />
+        </CyclesContext.Provider>
 
         {activeCycle ? (
           <StopCountdownButton onClick={handleInterruptCycle} type="button">
