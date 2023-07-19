@@ -1,8 +1,9 @@
-import { ChangeEvent, useState } from 'react'
-import { Play } from 'phosphor-react'
+import { ChangeEvent, useEffect, useState } from 'react'
+import { HandPalm, Play } from 'phosphor-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as zod from 'zod' // Não possui export default, por isso * as zod, caso contrário teria que colocar entre {} cada coisa que queríamos importar
+import { differenceInSeconds } from 'date-fns'
 
 import {
   CountdownContainer,
@@ -11,6 +12,7 @@ import {
   MinutesAmountInput,
   Separator,
   StartCountdownButton,
+  StopCountdownButton,
   TaskInput,
 } from './styles'
 
@@ -39,11 +41,20 @@ interface Cycle {
   id: string
   task: string
   minutesAmount: number
+  startDate: Date // data que ele ficou ativo
+  interruptedDate?: Date
+  finishedDate?: Date
 }
 
 export function Home() {
   // tem que ser uma lista de ciclos pra armazenar o histórico
-  const [cycles, setCycle] = useState<Cycle[]>([])
+  const [cycles, setCycles] = useState<Cycle[]>([])
+
+  // enquanto não tiver nada no histórico, sempre será inicializado como null
+  const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
+
+  // total de segundos que se passaram desde o início de um novo ciclo
+  const [amountSecondsPassed, setAmountSecondsPassed] = useState(0)
 
   //  useForm: objeto que possui várias funções/variáveis para criar o formulário
   /**
@@ -71,27 +82,115 @@ export function Home() {
       },
     })
 
+  const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
+
+  const totalSeconds = activeCycle ? activeCycle.minutesAmount * 60 : 0
+
+  // sempre que usamos uma variável externa, devemos incluir ela como dependencia do useEffect dentro dos colchetes
+  useEffect(() => {
+    let interval: number
+
+    // só quero fazer a redução do countdown se tiver um ciclo ativo
+    if (activeCycle) {
+      interval = setInterval(() => {
+        // calculando a diferença de segundos que se passaram desde a data atual pra data que começou o ciclo dentro do intervalo de 1 segundo
+        const secondsDifference = differenceInSeconds(
+          new Date(),
+          activeCycle.startDate,
+        )
+
+        // compara pra ver se já chegou no zero, caso sim, terminou o contador, caso contrario, continua mudando os minutos/segundos
+        if (secondsDifference >= totalSeconds) {
+          // percorre o objeto e acha o ciclo ativo para mudar a data que foi interrompido
+          setCycles((state) =>
+            state.map((cycle) => {
+              if (cycle.id === activeCycleId) {
+                return { ...cycle, finishedDate: new Date() }
+              } else {
+                return cycle
+              }
+            }),
+          )
+
+          setAmountSecondsPassed(totalSeconds)
+
+          clearInterval(interval)
+        } else {
+          setAmountSecondsPassed(secondsDifference)
+        }
+      }, 1000)
+    }
+
+    // retorno do useEffect sempre será uma função
+    // nesse caso o useEffect será chamado toda vez que a activeCycle mudar, portanto quando chamar o useEffect de novo, vou fazer o clearInterval
+    return () => {
+      clearInterval(interval)
+    }
+  }, [activeCycle, activeCycleId, totalSeconds])
+
   function handleCreateNewCycle(data: newCycleFormData) {
+    const id = String(new Date().getTime())
+
     // id com base no milisegundo que a pessoa clicou no botão
     const newCycle: Cycle = {
-      id: String(new Date().getTime()),
+      id,
       task: data.task,
       minutesAmount: data.minutesAmount,
+      startDate: new Date(), // data atual = data que o ciclo iniciou
     }
 
     // sempre que o valor do estado precisa do valor anterior, é necessário alterar por função
-    setCycle((state) => [...state, newCycle])
+    setCycles((state) => [...state, newCycle])
+    setActiveCycleId(id)
+
+    // zera a quantidade de segundos que se passaram, pra toda vez começar no tempo cheio que o usuário passou
+    setAmountSecondsPassed(0)
 
     reset()
   }
 
+  function handleInterruptCycle() {
+    // percorre o objeto e acha o ciclo ativo para mudar a data que foi interrompido
+    setCycles((state) =>
+      state.map((cycle) => {
+        if (cycle.id === activeCycleId) {
+          return { ...cycle, interruptedDate: new Date() }
+        } else {
+          return cycle
+        }
+      }),
+    )
+
+    setActiveCycleId(null)
+  }
+
   // Retorna os erros de validação do resolver
-  console.log(formState.errors)
+  // console.log(formState.errors)
+
+  const currentSeconds = activeCycle ? totalSeconds - amountSecondsPassed : 0
+
+  const minutesAmount = Math.floor(currentSeconds / 60)
+  const secondsAmount = currentSeconds % 60
+
+  // padStart: nesse caso a string sempre tem que ter tamanho , caso contrário o padStart irá preencher com '0' até chegar no tamanho desejado
+  const minutes = String(minutesAmount).padStart(2, '0')
+  const seconds = String(secondsAmount).padStart(2, '0')
+
+  // coloca o timer no title da página também
+  useEffect(() => {
+    if (activeCycle) {
+      document.title = `Ignite Timer - ${minutes}:${seconds}`
+    }
+  }, [minutes, seconds])
+
+  // console.log(activeCycle)
 
   // Observa o valor do input em tempo real, transforma form em controlled
   // Controlled recria o componente inteiro ou somente o input nesse caso
   const task = watch('task')
   const isSubmitDisabled = !task
+
+  console.log(cycles)
 
   return (
     <HomeContainer>
@@ -102,6 +201,9 @@ export function Home() {
             id="task"
             list="task-suggestions"
             placeholder="dê um nome para o seu projeto"
+            disabled={
+              !!activeCycle // se tiver algum valor dentro, '!!' converte pra true, caso constrário, false
+            }
             {...register('task')}
           />
 
@@ -120,6 +222,7 @@ export function Home() {
             step={5}
             min={5}
             max={60}
+            disabled={!!activeCycle}
             {...register('minutesAmount', { valueAsNumber: true })}
           />
 
@@ -127,17 +230,28 @@ export function Home() {
         </FormContainer>
 
         <CountdownContainer>
-          <span>0</span>
-          <span>0</span>
+          <span>
+            {
+              minutes[0] // Posso trabalhar com string como fossem vetores, nesse caso irá retornar o primeiro valor da string
+            }
+          </span>
+          <span>{minutes[1]}</span>
           <Separator>:</Separator>
-          <span>0</span>
-          <span>0</span>
+          <span>{seconds[0]}</span>
+          <span>{seconds[1]}</span>
         </CountdownContainer>
 
-        <StartCountdownButton type="submit" disabled={isSubmitDisabled}>
-          <Play size={24} />
-          Começar
-        </StartCountdownButton>
+        {activeCycle ? (
+          <StopCountdownButton onClick={handleInterruptCycle} type="button">
+            <HandPalm size={24} />
+            Interromper
+          </StopCountdownButton>
+        ) : (
+          <StartCountdownButton type="submit" disabled={isSubmitDisabled}>
+            <Play size={24} />
+            Começar
+          </StartCountdownButton>
+        )}
       </form>
     </HomeContainer>
   )
