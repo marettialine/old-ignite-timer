@@ -78,8 +78,6 @@ export function CyclesContextProvider({
 
     // zera a quantidade de segundos que se passaram, pra toda vez começar no tempo cheio que o usuário passou
     setAmountSecondsPassed(0)
-
-    // reset()
   }
 
   function interruptCurrentCycle() {

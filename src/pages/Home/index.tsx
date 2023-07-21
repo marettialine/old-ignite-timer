@@ -64,7 +64,12 @@ export function Home() {
     },
   })
 
-  const { handleSubmit, watch /*, reset */ } = newCycleForm
+  const { handleSubmit, watch, reset } = newCycleForm
+
+  function handleCreateNewCycle(data: newCycleFormData) {
+    createNewCycle(data)
+    reset()
+  }
 
   // Retorna os erros de validação do resolver
   // console.log(formState.errors)
@@ -79,7 +84,7 @@ export function Home() {
 
   return (
     <HomeContainer>
-      <form onSubmit={handleSubmit(createNewCycle)} action="">
+      <form onSubmit={handleSubmit(handleCreateNewCycle)} action="">
         <FormProvider
           {
             ...newCycleForm // pego cada propriedade do newCycleForm e passo como propriedade
