@@ -1,4 +1,10 @@
 import { useContext } from 'react'
+import {
+  differenceInMinutes,
+  formatDistance,
+  formatDistanceToNow,
+} from 'date-fns'
+import ptBR from 'date-fns/locale/pt-BR'
 
 import { CyclesContext } from '../../contexts/CyclesContext'
 
@@ -11,7 +17,7 @@ export function History() {
     <HistoryContainer>
       <h1>Meu histórico</h1>
 
-      <pre>{JSON.stringify(cycles, null, 2)}</pre>
+      {/* Listagem do JSON <pre>{JSON.stringify(cycles, null, 2)}</pre> */}
 
       <HistoryList>
         <table>
@@ -20,82 +26,95 @@ export function History() {
               <th>Tarefa</th>
               <th>Duração</th>
               <th>Início</th>
+              <th>Tempo Transcorrido</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="green">Concluído</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="yellow">Em andamento</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="red">Interrompido</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="green">Concluído</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="yellow">Em andamento</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="red">Interrompido</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="green">Concluído</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="yellow">Em andamento</Status>
-              </td>
-            </tr>
-            <tr>
-              <td>Tarefa</td>
-              <td>20 minutos</td>
-              <td>Há dois meses</td>
-              <td>
-                <Status statusColor="red">Interrompido</Status>
-              </td>
-            </tr>
+            {cycles.map((cycle) => {
+              return (
+                <tr key={cycle.id}>
+                  <td>{cycle.task}</td>
+                  <td>{cycle.minutesAmount} minutos</td>
+                  <td>
+                    {differenceInMinutes(new Date(), cycle.startDate) < 1
+                      ? 'há 0 minutos'
+                      : formatDistanceToNow(cycle.startDate, {
+                          addSuffix: true,
+                          locale: ptBR,
+                        })}
+                  </td>
+                  <td>
+                    {
+                      // estrutura de if que tem apenas o then e não tem else abaixo
+                      cycle.finishedDate && (
+                        <span>
+                          {differenceInMinutes(
+                            cycle.finishedDate,
+                            cycle.startDate,
+                          ) < 1
+                            ? '0 minutos'
+                            : formatDistance(
+                                cycle.finishedDate,
+                                cycle.startDate,
+                                {
+                                  addSuffix: false,
+                                  locale: ptBR,
+                                },
+                              )}
+                        </span>
+                      )
+                    }
+                    {
+                      // estrutura de if que tem apenas o then e não tem else abaixo
+                      cycle.interruptedDate && (
+                        <span>
+                          {differenceInMinutes(
+                            cycle.interruptedDate,
+                            cycle.startDate,
+                          ) < 1
+                            ? '0 minutos'
+                            : formatDistance(
+                                cycle.interruptedDate,
+                                cycle.startDate,
+                                {
+                                  addSuffix: false,
+                                  locale: ptBR,
+                                },
+                              )}
+                        </span>
+                      )
+                    }
+                    {
+                      // estrutura de if que tem apenas o then e não tem else abaixo
+                      !cycle.finishedDate && !cycle.interruptedDate && (
+                        <span>-</span>
+                      )
+                    }
+                  </td>
+                  <td>
+                    {
+                      // estrutura de if que tem apenas o then e não tem else abaixo
+                      cycle.finishedDate && (
+                        <Status statusColor="green">Concluído</Status>
+                      )
+                    }
+                    {
+                      // estrutura de if que tem apenas o then e não tem else abaixo
+                      cycle.interruptedDate && (
+                        <Status statusColor="red">Interrompido</Status>
+                      )
+                    }
+                    {
+                      // estrutura de if que tem apenas o then e não tem else abaixo
+                      !cycle.finishedDate && !cycle.interruptedDate && (
+                        <Status statusColor="yellow">Em andamento</Status>
+                      )
+                    }
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </HistoryList>
