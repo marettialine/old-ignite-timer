@@ -1,8 +1,9 @@
 import { useContext, useEffect, useState } from 'react'
 import { differenceInSeconds } from 'date-fns'
 
+import { CyclesContext } from '../../../../contexts/CyclesContext'
+
 import { CountdownContainer, Separator } from './styles'
-import { CyclesContext } from '../..'
 
 export function Countdown() {
   const {
@@ -45,6 +46,8 @@ export function Countdown() {
           setSecondsPassed(totalSeconds)
 
           clearInterval(interval)
+
+          document.title = `Ignite Timer`
         } else {
           setSecondsPassed(secondsDifference)
         }
@@ -61,7 +64,7 @@ export function Countdown() {
   // coloca o timer no title da página também
   useEffect(() => {
     if (activeCycle) {
-      document.title = `Ignite Timer - ${minutes}:${seconds}`
+      document.title = `${minutes}:${seconds} - Ignite Timer`
     }
   }, [minutes, seconds])
 
